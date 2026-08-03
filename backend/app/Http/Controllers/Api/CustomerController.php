@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Customer;
 use App\Http\Requests\StoreCustomerRequest;
+use App\Http\Requests\UpdateCustomerRequest;
 use App\Http\Resources\CustomerResource;
 
 class CustomerController extends Controller
@@ -39,17 +40,26 @@ class CustomerController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function show(Customer $customer)
     {
-        //
+        // we have two functions find(), findOrFail()
+        // if he search for a 999 id find() return null
+        // if he search for it an uses findOrFail() it return
+        //{
+        // "message": "No query results for model [Customer]"
+        // }
+
+        // laravel uses method called Route Model Binding
+        return new CustomerResource($customer);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
-    {
-        //
+    public function update(UpdateCustomerRequest $request, Customer $customer) {
+        $customer->update($request->validated());
+
+        return new CustomerResource($customer);
     }
 
     /**
