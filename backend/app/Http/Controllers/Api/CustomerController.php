@@ -14,7 +14,15 @@ class CustomerController extends Controller
      */
     public function index()
     {
-        return Customer::all();
+        $customer = Customer::select(
+            'id',
+            'name',
+            'phone',
+            'address'
+        )->paginate(10);
+        return response()->json([
+            'customer' => $customer,
+        ]);
     }
 
     /**
