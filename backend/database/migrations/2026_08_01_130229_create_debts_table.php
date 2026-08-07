@@ -13,6 +13,10 @@ return new class extends Migration
     {
         Schema::create('debts', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('customer_id')->constrained()->onDelete('cascade');
+            $table->decimal('amount', 10, 2);
+            $table->decimal('remaining_amount', 10, 2)->default(0);
+            $table->string('status')->default('unpaid');
             $table->timestamps();
         });
     }
