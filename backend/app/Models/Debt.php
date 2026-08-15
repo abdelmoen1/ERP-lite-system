@@ -4,21 +4,26 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Debt extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
+
     protected $fillable = [
-        'customer_id',
+        'invoice_id',
         'amount',
         'remaining_amount',
         'status',
     ];
 
-    // Relationship between Customer and Debts
-    public function customer()
+    public function invoice()
     {
-        // A Debt belong to one Customer
-        return $this->belongsTo(Customer::class)->withTrashed();
+        return $this->belongsTo(Invoice::class);
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
     }
 }

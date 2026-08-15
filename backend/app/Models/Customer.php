@@ -12,11 +12,12 @@ class Customer extends Model
     protected $fillable = [
         'name',
         'phone',
-        'adderss',
+        'address',
+        'notes',
     ];
 
-    public function debts()
+    public function invoices()
     {
-        return $this->hasMany(Debt::class);
+        return $this->hasMany(Invoice::class);
     }
 }

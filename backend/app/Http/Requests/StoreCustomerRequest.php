@@ -21,17 +21,19 @@ class StoreCustomerRequest extends FormRequest
     {
         return [
             'name' => 'required|string|max:255',
-            'phone' => 'required|string',
-            'address' => 'nullable|string',
+            'phone' => 'required|string|max:10|min:10|unique:customers,phone',
+            'address' => 'nullable|string|max:500',
         ];
     }
+
     public function messages(): array
     {
         return [
             'name.required' => 'اسم العميل مطلوب',
-            'name.max' => 'اسم العميل لا يزيد عن 30 حرف',
+            'name.max' => 'اسم العميل يجب ألا يزيد عن 255 حرف',
             'phone.required' => 'رقم الهاتف مطلوب',
-            'address.string' => 'العنوان يجب ان يكون نصا'
-        ];      
+            'phone.unique' => 'رقم الهاتف مستخدم مسبقًا لعميل آخر',
+            'address.string' => 'العنوان يجب أن يكون نصًا',
+        ];
     }
 }

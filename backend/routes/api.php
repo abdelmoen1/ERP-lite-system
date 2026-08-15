@@ -3,13 +3,19 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\CustomerController;
+use App\Http\Controllers\Api\CustomerDebtController;
 use App\Http\Controllers\Api\DebtController;
-
-Route::get('/user', function (Request $request) {
-    return $request->user();
-})->middleware('auth:sanctum');
+use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\InvoiceController;
 
 Route::apiResource('customers', CustomerController::class);
 
+Route::apiResource('invoices', InvoiceController::class);
+
 Route::apiResource('debts', DebtController::class);
 
+Route::apiResource('payments', PaymentController::class);
+
+Route::get('customers/{customer}/debts', [CustomerDebtController::class, 'index']);
+
+Route::get('debts/{debt}/invoice', [DebtController::class, 'invoice']);

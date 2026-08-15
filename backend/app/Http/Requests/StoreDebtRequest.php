@@ -34,6 +34,8 @@ class StoreDebtRequest extends FormRequest
             'customer_id.required' => 'يجب اختيار العميل',
             'customer_id.exists' => 'العميل المحدد غير موجود في النظام',
             'amount.required' => 'يجب ادخل قيمة الدين',
+            'amount.numeric' => 'يجب أن تكون قيمة الدين رقمية',
+            'amount.min' => 'يجب أن تكون قيمة الدين أكبر من صفر',
         ];
     }
 }

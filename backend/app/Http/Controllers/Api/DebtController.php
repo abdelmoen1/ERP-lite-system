@@ -3,12 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Debt;
-use App\Http\Requests\StoreDebtRequest;
-use App\Http\Requests\UpdateCustomerRequest;
 use App\Http\Requests\UpdateDebtRequest;
 use App\Http\Resources\DebtResource;
+use App\Http\Requests\StorePaymentRequest;
+use App\Http\Resources\InvoiceResource;
 
 class DebtController extends Controller
 {
@@ -30,23 +29,20 @@ class DebtController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreDebtRequest $request)
+    public function store(StorePaymentRequest $request)
     {
-        $debt = Debt::create([
-            'customer_id' => $request->customer_id,
-            'amount' => $request->amount,
-            'remaining_amount' => $request->amount,
-        ]);
+        //
+    }
+    public function invoice(Debt $debt)
+    {
+        $invoice = $debt->invoice()->with([
+            'customer',
+            'items',
+        ])->firstOrFail();
 
-        return response()->json([
-            'message' => 'Debt Stored successfully',
-            'debt' => new DebtResource($debt->load('customer')),
-        ], 201);
+        return new InvoiceResource($invoice);
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(Debt $debt)
     {
         $debt->load('customer');
@@ -61,11 +57,11 @@ class DebtController extends Controller
     {
         $data = $request->validated();
 
-        if (isset($data['amount'])) {
+        if (isset($data['amount']) && (float)$data['amount'] !== (float)$debt->amount) {
 
-            if ($debt->amount != $debt->remaining_amount) {
+            if ($debt->payments()->exits()) {
                 return response()->json([
-                    'message' => 'Cannot update amount because debt has payments'
+                    'message' => 'لا يمكن تحديث المبلغ لأن الدين يتضمن دفعات.'
                 ], 422);
             }
 
@@ -76,15 +72,16 @@ class DebtController extends Controller
 
         return new DebtResource($debt->load('customer'));
     }
-    /**
-     * Remove the specified resource from storage.
-     */
+
     public function destroy(Debt $debt)
     {
-        $debt->delete();
+        if ($debt->payments()->exists()) {
+            return response()->json([
+                'message' => 'لا يمكن حذف دين له دفعات مسجّلة',
+            ], 422);
+        }
 
-        return response()->json([
-            'message' => 'Debt deleted successfully.'
-        ]);
+        $debt->delete();
+        return response()->json(['message' => 'تم حذف الدين بنجاح']);
     }
 }

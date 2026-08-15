@@ -14,16 +14,17 @@ class CustomerController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $customer = Customer::select(
+        $customers = Customer::select([
             'id',
             'name',
-            'phone'
-        )->paginate(10);
-        return CustomerResource::collection($customer);
-    }
+            'phone',
+            'address',
+        ])->paginate(10);
 
+        return CustomerResource::collection($customers);
+    }
     /**
      * Store a newly created resource in storage.
      */
@@ -33,7 +34,7 @@ class CustomerController extends Controller
 
         return response()->json([
             'message' => 'Customer created successfully',
-            'customer' => $customer,
+            'customer' => new CustomerResource($customer),
         ], 201);
     }
 
@@ -68,10 +69,16 @@ class CustomerController extends Controller
      */
     public function destroy(Customer $customer)
     {
+        $hasOpenDebts = $customer->debts()->whereIn('status', ['open', 'partially_paid'])->exists();
+
+        if ($hasOpenDebts) {
+            return response()->json([
+                'message' => 'لا يمكن حذف عميل لديه ديون مفتوحة أو مدفوعة جزئيًا',
+            ], 422);
+        }
+
         $customer->delete();
 
-        return response()->json([
-            'message' => 'Customer deleted successfully'
-        ]);
+        return response()->json(['message' => 'تم حذف العميل بنجاح']);
     }
 }

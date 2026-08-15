@@ -11,13 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('customers', function (Blueprint $table) {
+        Schema::create('debts', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->string('phone')->unique();
-            $table->string('address')->nullable();
-            $table->text('notes')->nullable();
+            $table->foreignId('invoice_id')->constrained()->onDelete('cascade');
+            $table->decimal('amount', 10, 2);
+            $table->decimal('remaining_amount', 10, 2)->default(0);
+            $table->string('status')->default('unpaid');
             $table->softDeletes();
+            $table->string('reversal_reason')->nullable();
             $table->timestamps();
         });
     }
@@ -27,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('customers');
+        Schema::dropIfExists('debts');
     }
 };
