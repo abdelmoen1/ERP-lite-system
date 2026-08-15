@@ -10,6 +10,7 @@ use App\Http\Resources\PaymentResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Requests\ReversePaymentRequest;
+use Illuminate\Validation\ValidationException;
 
 class PaymentController extends Controller
 {
@@ -26,37 +27,50 @@ class PaymentController extends Controller
      */
     public function store(StorePaymentRequest $request)
     {
-        $payment = DB::transaction(function () use ($request) {
-            $debt = Debt::where('id', $request->debt_id)->lockForUpdate()->firstOrFail();
+        $validated = $request->validated();
 
-            $totalPaid = $debt->payments()->where('is_reversed', false)->sum('amount');
-            $remaining = $debt->original_amount - $totalPaid;
+        $payment = DB::transaction(function () use ($validated, $request) {
 
-            if ($request->amount > $remaining) {
-                abort(422, 'المبلغ المدخل أكبر من الرصيد المتبقي: ' . number_format($remaining, 2));
+            $debt = Debt::with('invoice')
+                ->whereKey($validated['debt_id'])
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($debt->remaining_amount <= 0) {
+                throw ValidationException::withMessages([
+                    'debt_id' => ['هذا الدين مسدد بالكامل.'],
+                ]);
+            }
+
+            if ($validated['amount'] > $debt->remaining_amount) {
+                throw ValidationException::withMessages([
+                    'amount' => [
+                        'مبلغ الدفعة أكبر من المبلغ المتبقي: '
+                            . number_format($debt->remaining_amount, 2)
+                    ],
+                ]);
             }
 
             $payment = $debt->payments()->create([
-                'amount' => $request->amount,
-                'method' => $request->method ?? 'cash',
-                'paid_at' => $request->paid_at,
-                'notes' => $request->notes,
+                'amount' => $validated['amount'],
+                'method' => $validated['method'] ?? 'cash',
+                'paid_at' => $validated['paid_at'] ?? now(),
+                'notes' => $validated['notes'] ?? null,
                 'created_by' => $request->user()?->id,
             ]);
 
-            $newTotalPaid = $totalPaid + $request->amount;
-            $debt->status = $newTotalPaid >= $debt->original_amount
+            $debt->remaining_amount -= $validated['amount'];
+
+            $debt->status = $debt->remaining_amount <= 0
                 ? 'paid'
-                : ($newTotalPaid > 0 ? 'partially_paid' : 'open');
+                : 'partially_paid';
+
             $debt->save();
 
             return $payment;
         });
 
-        return response()->json([
-            'message' => 'تم تسجيل الدفعة بنجاح',
-            'payment' => new PaymentResource($payment->load('debt.customer')),
-        ], 201);
+        return new PaymentResource($payment->load('debt'));
     }
 
     /**
