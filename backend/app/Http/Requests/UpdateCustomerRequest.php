@@ -24,6 +24,7 @@ class UpdateCustomerRequest extends FormRequest
                 Rule::unique('customers', 'phone')->ignore($this->route('customer')),
             ],
             'address' => 'sometimes|nullable|string|max:500',
+            'notes' => 'sometimes|nullable|string',
         ];
     }
 

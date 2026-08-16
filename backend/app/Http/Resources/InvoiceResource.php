@@ -18,6 +18,7 @@ class InvoiceResource extends JsonResource
             'id' => $this->id,
             'customer' => new CustomerResource($this->whenLoaded('customer')),
             'has_debt' => (bool) $this->has_debt,
+            'payment_method' => $this->payment_method,
             'total_amount' => (float) $this->total_amount,
             'debt' => new DebtResource($this->whenLoaded('debt')),
             'items' => InvoiceItemResource::collection($this->whenLoaded('items')),

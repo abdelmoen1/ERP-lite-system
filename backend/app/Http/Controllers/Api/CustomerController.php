@@ -21,6 +21,7 @@ class CustomerController extends Controller
             'name',
             'phone',
             'address',
+            'notes',
         ])->paginate(10);
 
         return CustomerResource::collection($customers);

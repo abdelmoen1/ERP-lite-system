@@ -40,6 +40,7 @@ class InvoiceController extends Controller
                 $invoice = Invoice::create([
                     'customer_id' => $validated['customer_id'],
                     'has_debt' => $validated['has_debt'],
+                    'payment_method' => $validated['has_debt'] ? null : $validated['payment_method'],
                     'total_amount' => $totalAmount,
                 ]);
                 $invoiceItems = [];

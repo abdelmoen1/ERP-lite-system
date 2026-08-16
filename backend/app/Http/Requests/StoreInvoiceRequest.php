@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreInvoiceRequest extends FormRequest
 {
@@ -23,12 +24,51 @@ class StoreInvoiceRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'customer_id' => 'required|exists:customers,id',
-            'has_debt' => 'required|boolean',
-            'items' => 'required|array|min:1',
-            'items.*.item_name' => 'required|string|max:225',
-            'items.*.quantity' => 'required|integer|min:1',
-            'items.*.unit_price' => 'required|numeric|min:0.01',
+            'customer_id' => [
+                'required',
+                'exists:customers,id',
+            ],
+
+            'has_debt' => [
+                'required',
+                'boolean',
+            ],
+
+            'payment_method' => [
+                'nullable',
+                'string',
+                Rule::in([
+                    'jawwal_pay',
+                    'palpay',
+                    'bank_of_palestine',
+                ]),
+                'required_if:has_debt,false',
+                'prohibited_if:has_debt,true',
+            ],
+
+            'items' => [
+                'required',
+                'array',
+                'min:1',
+            ],
+
+            'items.*.item_name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+
+            'items.*.quantity' => [
+                'required',
+                'integer',
+                'min:1',
+            ],
+
+            'items.*.unit_price' => [
+                'required',
+                'numeric',
+                'min:0.01',
+            ],
         ];
     }
 

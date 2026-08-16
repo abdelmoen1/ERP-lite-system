@@ -23,6 +23,7 @@ class StoreCustomerRequest extends FormRequest
             'name' => 'required|string|max:255',
             'phone' => 'required|string|max:10|min:10|unique:customers,phone',
             'address' => 'nullable|string|max:500',
+            'notes' => 'nullable|string',
         ];
     }
 
