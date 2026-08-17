@@ -25,8 +25,9 @@ class StoreInvoiceRequest extends FormRequest
     {
         return [
             'customer_id' => [
-                'required',
+                'nullable',
                 'exists:customers,id',
+                'required_if:has_debt,true',
             ],
 
             'has_debt' => [
