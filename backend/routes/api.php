@@ -27,3 +27,8 @@ Route::post('/payments/{payment}/reverse', [PaymentController::class, 'reverse']
 // {
 //     "reason": "تم تسجيل الدفعة بالخطأ"
 // }
+Route::post(
+    '/payment-groups/{paymentGroupId}/reverse',
+    [PaymentController::class, 'reverseGroup']
+);
+// POST /api/payment-groups/{paymentGroupId}/reverse

@@ -10,6 +10,7 @@ use App\Http\Resources\PaymentResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Requests\ReversePaymentRequest;
+use App\Http\Requests\ReversePaymentGroupRequest;
 use Illuminate\Validation\ValidationException;
 
 class PaymentController extends Controller
@@ -162,6 +163,61 @@ class PaymentController extends Controller
 
         return response()->json([
             'message' => 'تم إلغاء الدفعة وإعادة المبلغ إلى الدين بنجاح.',
+        ]);
+    }
+
+    public function reverseGroup(ReversePaymentGroupRequest $request, string $paymentGroupId)
+    {
+        $result = DB::transaction(function () use ($request, $paymentGroupId) {
+
+            $payments = Payment::where('payment_group_id', $paymentGroupId)
+                ->where('is_reversed', false)
+                ->with('debt')
+                ->lockForUpdate()
+                ->get();
+
+            if ($payments->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'payment_group_id' => [
+                        'عملية السداد غير موجودة أو تم إلغاؤها بالفعل.'
+                    ],
+                ]);
+            }
+
+            $totalReversed = 0;
+            $debtsCount = 0;
+
+            foreach ($payments as $payment) {
+                $debt = $payment->debt;
+
+                $debt->remaining_amount += $payment->amount;
+
+                $debt->status = $debt->remaining_amount >= $debt->amount
+                    ? 'unpaid'
+                    : 'partially_paid';
+
+                $debt->save();
+
+                $payment->update([
+                    'is_reversed' => true,
+                    'reversed_at' => now(),
+                    'reversal_reason' => $request->validated('reason'),
+                ]);
+
+                $totalReversed += $payment->amount;
+                $debtsCount++;
+            }
+
+            return [
+                'payment_group_id' => $paymentGroupId,
+                'debts_count' => $debtsCount,
+                'total_reversed' => $totalReversed,
+            ];
+        });
+
+        return response()->json([
+            'message' => 'تم إلغاء عملية السداد بالكامل بنجاح.',
+            'data' => $result,
         ]);
     }
     /**
