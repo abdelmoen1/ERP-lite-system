@@ -20,6 +20,9 @@ class PaymentResource extends JsonResource
             'method' => $this->method,
             'paid_at' => $this->paid_at,
             'notes' => $this->notes,
+            'is_reversed' => (bool) $this->is_reversed,
+            'reversed_at' => $this->reversed_at,
+            'reversal_reason' => $this->reversal_reason,
         ];
     }
 }

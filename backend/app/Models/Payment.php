@@ -14,6 +14,9 @@ class Payment extends Model
         'paid_at',
         'payment_group_id',
         'created_by',
+        'is_reversed',
+        'reversed_at',
+        'reversal_reason',
     ];
     public function debt()
     {
