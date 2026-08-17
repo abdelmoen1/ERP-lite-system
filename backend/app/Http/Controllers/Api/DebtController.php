@@ -7,7 +7,7 @@ use App\Models\Debt;
 use App\Http\Requests\UpdateDebtRequest;
 use App\Http\Resources\DebtResource;
 use App\Http\Requests\StorePaymentRequest;
-use App\Http\Resources\InvoiceResource;
+use App\Http\Resources\DebtDetailsResource;
 
 class DebtController extends Controller
 {
@@ -16,9 +16,9 @@ class DebtController extends Controller
      */
     public function index()
     {
-        $debts = Debt::with('customer')->select(
+        $debts = Debt::with('invoice')->select(
             'id',
-            'customer_id',
+            'invoice_id',
             'amount',
             'remaining_amount',
             'status',
@@ -33,14 +33,15 @@ class DebtController extends Controller
     {
         //
     }
-    public function invoice(Debt $debt)
+    public function details(Debt $debt)
     {
-        $invoice = $debt->invoice()->with([
-            'customer',
-            'items',
-        ])->firstOrFail();
+        $invoice = $debt->load([
+            'payments',
+            'invoice.customer',
+            'invoice.items',
+        ]);
 
-        return new InvoiceResource($invoice);
+        return new DebtDetailsResource($invoice);
     }
 
     public function show(Debt $debt)

@@ -16,7 +16,6 @@ class PaymentResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'debt_id' => $this->debt_id,
             'amount' => (float) $this->amount,
             'method' => $this->method,
             'paid_at' => $this->paid_at,

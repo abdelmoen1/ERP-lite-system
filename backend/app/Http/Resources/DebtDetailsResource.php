@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class DebtResource extends JsonResource
+class DebtDetailsResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -16,11 +16,19 @@ class DebtResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'invoice_id' => $this->invoice?->id,
             'amount' => (float) $this->amount,
+
             'total_payments' => (float) $this->payments->sum('amount'),
+
             'remaining_amount' => (float) $this->remaining_amount,
-            'status' => $this->status,
+
+            'payments' => PaymentResource::collection(
+                $this->whenLoaded('payments')
+            ),
+
+            'invoice' => new InvoiceResource(
+                $this->invoice->load('customer', 'items')
+            ),
         ];
     }
 }

@@ -18,4 +18,4 @@ Route::apiResource('payments', PaymentController::class);
 
 Route::get('customers/{customer}/debts', [CustomerDebtController::class, 'index']);
 
-Route::get('debts/{debt}/invoice', [DebtController::class, 'invoice']);
+Route::get('debts/{debt}/details', [DebtController::class, 'details']);
