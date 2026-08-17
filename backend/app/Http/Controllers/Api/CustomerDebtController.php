@@ -32,7 +32,9 @@ class CustomerDebtController extends Controller
             'debts_count' => $debts->count(),
             'total_debt' => (float) $debts->sum('amount'),
             'total_payments' => (float) $debts->sum(
-                fn($debts) => (float) $debts->payments->sum('amount')
+                fn($debt) => $debt->payments
+                    ->where('is_reversed', false)
+                    ->sum('amount')
             ),
             'total_remaining' => (float) $debts->sum('remaining_amount'),
         ];

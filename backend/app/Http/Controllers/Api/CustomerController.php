@@ -28,7 +28,7 @@ class CustomerController extends Controller
         $customer = Customer::create($request->validated());
 
         return response()->json([
-            'message' => 'Customer created successfully',
+            'message' => 'تم انشاء العميل بنجاح',
             'customer' => new CustomerResource($customer),
         ], 201);
     }

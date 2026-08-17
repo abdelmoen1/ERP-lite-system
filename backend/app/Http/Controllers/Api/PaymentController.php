@@ -7,6 +7,7 @@ use App\Models\Debt;
 use App\Models\Payment;
 use App\Http\Requests\StorePaymentRequest;
 use App\Http\Resources\PaymentResource;
+use App\Http\Resources\PaymentOperationResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Requests\ReversePaymentRequest;
@@ -26,58 +27,58 @@ class PaymentController extends Controller
             ->latest('paid_at')
             ->get();
 
-        $operations = collect();
+        $operations = $payments
+            ->groupBy(function ($payment) {
+                return $payment->payment_group_id
+                    ?? 'single_' . $payment->id;
+            })
+            ->map(function ($group) {
 
-        $groupedPayments = $payments->groupBy(
-            fn($payment) => $payment->payment_group_id ?? 'single_' . $payment->id
-        );
+                $firstPayment = $group->first();
 
-        foreach ($groupedPayments as $group) {
+                $isPayAll = $firstPayment->payment_group_id !== null;
 
-            $firstPayment = $group->first();
+                $operation = new \stdClass();
 
-            if ($firstPayment->payment_group_id) {
-                // Pay All
-                $operations->push([
-                    'type' => 'pay_all',
-                    'payment_group_id' => $firstPayment->payment_group_id,
+                $operation->type = $isPayAll
+                    ? 'pay_all'
+                    : 'single';
 
-                    'customer' => new \App\Http\Resources\CustomerResource(
-                        $firstPayment->debt->invoice->customer
-                    ),
+                $operation->payment_group_id =
+                    $firstPayment->payment_group_id;
 
-                    'total_amount' => (float) $group->sum('amount'),
+                $operation->customer =
+                    $firstPayment->debt?->invoice?->customer;
 
-                    'method' => $firstPayment->method,
+                $operation->total_amount =
+                    (float) $group->sum('amount');
 
-                    'paid_at' => $firstPayment->paid_at,
+                $operation->method =
+                    $firstPayment->method;
 
-                    'payments' => PaymentResource::collection($group),
-                ]);
-            } else {
-                // Single payment
-                $operations->push([
-                    'type' => 'single',
-                    'payment_group_id' => null,
+                $operation->paid_at =
+                    $firstPayment->paid_at;
 
-                    'customer' => new \App\Http\Resources\CustomerResource(
-                        $firstPayment->debt->invoice->customer
-                    ),
+                $operation->is_reversed =
+                    $group->every(fn($payment) => $payment->is_reversed);
 
-                    'total_amount' => (float) $firstPayment->amount,
+                $operation->reversed_at =
+                    $operation->is_reversed
+                    ? $group->max('reversed_at')
+                    : null;
 
-                    'method' => $firstPayment->method,
+                $operation->reversal_reason =
+                    $operation->is_reversed
+                    ? $group->first()->reversal_reason
+                    : null;
 
-                    'paid_at' => $firstPayment->paid_at,
+                $operation->payments = $group->values();
 
-                    'payments' => PaymentResource::collection($group),
-                ]);
-            }
-        }
+                return $operation;
+            })
+            ->values();
 
-        return response()->json([
-            'data' => $operations->values(),
-        ]);
+        return PaymentOperationResource::collection($operations);
     }
 
     /**

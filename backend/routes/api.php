@@ -22,13 +22,6 @@ Route::get('debts/{debt}/details', [DebtController::class, 'details']);
 
 Route::post('/customers/{customer}/debts/pay-all', [CustomerDebtController::class, 'payAll']);
 
-Route::post('/payments/{payment}/reverse', [PaymentController::class, 'reverse']);
-// POST /api/payments/1/reverse
-// {
-//     "reason": "تم تسجيل الدفعة بالخطأ"
-// }
-Route::post(
-    '/payment-groups/{paymentGroupId}/reverse',
-    [PaymentController::class, 'reverseGroup']
-);
-// POST /api/payment-groups/{paymentGroupId}/reverse
+Route::post('/payments/{payment}/reverse', [PaymentController::class, 'is_reverse']);
+
+Route::post('/payment-groups/{paymentGroupId}/reverse', [PaymentController::class, 'reverseGroup']);
