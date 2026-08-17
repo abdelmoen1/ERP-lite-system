@@ -16,12 +16,11 @@ return new class extends Migration
             $table->foreignId('debt_id')->constrained()->onDelete('cascade');
             $table->decimal('amount', 10, 2);
             $table->text('notes')->nullable();
-            $table->string('method')->default('cash'); 
-            $table->timestamp('paid_at');           
+            $table->string('method')->default('cash');
+            $table->uuid('payment_group_id')->nullable()->index();
+            $table->timestamp('paid_at');
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->boolean('is_reversed')->default(false);
-            $table->timestamp('reversed_at')->nullable();
-            $table->timestamps(); 
+            $table->timestamps();
         });
     }
 

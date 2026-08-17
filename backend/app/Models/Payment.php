@@ -12,6 +12,7 @@ class Payment extends Model
         'notes',
         'method',
         'paid_at',
+        'payment_group_id',
         'created_by',
     ];
     public function debt()

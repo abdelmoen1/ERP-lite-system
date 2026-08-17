@@ -19,3 +19,5 @@ Route::apiResource('payments', PaymentController::class);
 Route::get('customers/{customer}/debts', [CustomerDebtController::class, 'index']);
 
 Route::get('debts/{debt}/details', [DebtController::class, 'details']);
+
+Route::post('/customers/{customer}/debts/pay-all', [CustomerDebtController::class, 'payAll']);

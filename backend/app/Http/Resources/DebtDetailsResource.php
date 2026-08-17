@@ -26,9 +26,19 @@ class DebtDetailsResource extends JsonResource
                 $this->whenLoaded('payments')
             ),
 
-            'invoice' => new InvoiceResource(
-                $this->invoice->load('customer', 'items')
-            ),
+            'invoice' => [
+                'id' => $this->invoice->id,
+
+                'customer' => new CustomerResource(
+                    $this->invoice->customer
+                ),
+
+                'total_amount' => (float) $this->invoice->total_amount,
+
+                'items' => InvoiceItemResource::collection(
+                    $this->invoice->items
+                ),
+            ],
         ];
     }
 }
