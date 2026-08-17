@@ -16,13 +16,7 @@ class CustomerController extends Controller
      */
     public function index(Request $request)
     {
-        $customers = Customer::select([
-            'id',
-            'name',
-            'phone',
-            'address',
-            'notes',
-        ])->paginate(10);
+        $customers = Customer::withCount('debts')->latest()->get();
 
         return CustomerResource::collection($customers);
     }

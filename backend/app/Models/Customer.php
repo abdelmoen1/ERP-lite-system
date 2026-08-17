@@ -20,4 +20,15 @@ class Customer extends Model
     {
         return $this->hasMany(Invoice::class);
     }
+    public function debts()
+    {
+        return $this->hasManyThrough(
+            Debt::class,
+            Invoice::class,
+            'customer_id', // Foreign key on invoices
+            'invoice_id',  // Foreign key on debts
+            'id',          // Local key on customers
+            'id'           // Local key on invoices
+        );
+    }
 }
