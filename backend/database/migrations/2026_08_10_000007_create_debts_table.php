@@ -13,7 +13,15 @@ return new class extends Migration
     {
         Schema::create('debts', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('invoice_id')->constrained()->onDelete('cascade');
+
+            $table->foreignId('store_id')
+                ->constrained('stores')
+                ->restrictOnDelete();
+
+            $table->foreignId('invoice_id')
+                ->constrained()
+                ->restrictOnDelete();
+
             $table->decimal('amount', 10, 2);
             $table->decimal('remaining_amount', 10, 2)->default(0);
             $table->string('status')->default('unpaid');

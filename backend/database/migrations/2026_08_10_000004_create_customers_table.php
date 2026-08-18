@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('phone')->unique();
             $table->string('address')->nullable();
             $table->text('notes')->nullable();
+            $table->foreignId('store_id')->constrained()->onDelete('cascade');
             $table->softDeletes();
             $table->timestamps();
         });

@@ -16,16 +16,26 @@ class CustomerController extends Controller
      */
     public function index(Request $request)
     {
-        $customers = Customer::withCount('debts')->latest()->get();
+        $storeId = $request->user()->store_id;
+
+        $customers = Customer::query()
+            ->where('store_id', $storeId)
+            ->withCount('debts')
+            ->latest()
+            ->paginate(10);
 
         return CustomerResource::collection($customers);
     }
+
     /**
      * Store a newly created resource in storage.
      */
     public function store(StoreCustomerRequest $request)
     {
-        $customer = Customer::create($request->validated());
+        $customer = Customer::create([
+            ...$request->validated(),
+            'store_id' => $request->user()->store_id,
+        ]);
 
         return response()->json([
             'message' => 'تم انشاء العميل بنجاح',
@@ -36,24 +46,28 @@ class CustomerController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Customer $customer)
+    public function show(Request $request, Customer $customer)
     {
-        // we have two functions find(), findOrFail()
-        // if he search for a 999 id find() return null
-        // if he search for it an uses findOrFail() it return
-        //{
-        // "message": "No query results for model [Customer]"
-        // }
+        abort_unless(
+            $customer->store_id === $request->user()->store_id,
+            404
+        );
 
-        // laravel uses method called Route Model Binding
         return new CustomerResource($customer);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateCustomerRequest $request, Customer $customer)
-    {
+    public function update(
+        UpdateCustomerRequest $request,
+        Customer $customer
+    ) {
+        abort_unless(
+            $customer->store_id === $request->user()->store_id,
+            404
+        );
+
         $customer->update($request->validated());
 
         return new CustomerResource($customer);
@@ -62,9 +76,16 @@ class CustomerController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Customer $customer)
+    public function destroy(Request $request, Customer $customer)
     {
-        $hasOpenDebts = $customer->debts()->whereIn('status', ['open', 'partially_paid'])->exists();
+        abort_unless(
+            $customer->store_id === $request->user()->store_id,
+            404
+        );
+
+        $hasOpenDebts = $customer->debts()
+            ->whereIn('status', ['open', 'partially_paid'])
+            ->exists();
 
         if ($hasOpenDebts) {
             return response()->json([
@@ -74,6 +95,8 @@ class CustomerController extends Controller
 
         $customer->delete();
 
-        return response()->json(['message' => 'تم حذف العميل بنجاح']);
+        return response()->json([
+            'message' => 'تم حذف العميل بنجاح'
+        ]);
     }
 }
