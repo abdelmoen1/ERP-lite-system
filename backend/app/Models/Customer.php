@@ -14,7 +14,13 @@ class Customer extends Model
         'phone',
         'address',
         'notes',
+        'store_id',
     ];
+
+    public function store()
+    {
+        return $this->belongsTo(Store::class);
+    }
 
     public function invoices()
     {

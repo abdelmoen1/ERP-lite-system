@@ -11,11 +11,18 @@ class Debt extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'store_id',
         'invoice_id',
         'amount',
         'remaining_amount',
         'status',
+        'reversal_reason',
     ];
+
+    public function store()
+    {
+        return $this->belongsTo(Store::class);
+    }
 
     public function invoice()
     {
