@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Traits\ScopedThroughDebtStore;
 use Illuminate\Database\Eloquent\Model;
 
 class Payment extends Model
 {
+    use ScopedThroughDebtStore;
     protected $fillable = [
         'debt_id',
         'amount',

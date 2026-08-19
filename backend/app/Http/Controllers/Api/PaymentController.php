@@ -19,11 +19,14 @@ class PaymentController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $payments = Payment::with([
-            'debt.invoice.customer',
-        ])
+        $storeId = $request->user()->store_id;
+
+        $payments = Payment::forStore($storeId)
+            ->with([
+                'debt.invoice.customer',
+            ])
             ->latest('paid_at')
             ->get();
 
@@ -87,11 +90,13 @@ class PaymentController extends Controller
     public function store(StorePaymentRequest $request)
     {
         $validated = $request->validated();
+        $storeId = $request->user()->store_id;
 
-        $payment = DB::transaction(function () use ($validated, $request) {
+        $payment = DB::transaction(function () use ($validated, $request, $storeId) {
 
             $debt = Debt::with('invoice')
                 ->whereKey($validated['debt_id'])
+                ->where('store_id', $storeId)
                 ->lockForUpdate()
                 ->firstOrFail();
 
@@ -131,8 +136,11 @@ class PaymentController extends Controller
 
         return new PaymentResource($payment->load('debt'));
     }
+
     public function is_reverse(ReversePaymentRequest $request, Payment $payment)
     {
+        $this->ensurePaymentBelongsToStore($request, $payment);
+
         DB::transaction(function () use ($request, $payment) {
 
             $payment->load('debt');
@@ -169,10 +177,13 @@ class PaymentController extends Controller
 
     public function reverseGroup(ReversePaymentGroupRequest $request, string $paymentGroupId)
     {
-        $result = DB::transaction(function () use ($request, $paymentGroupId) {
+        $storeId = $request->user()->store_id;
+
+        $result = DB::transaction(function () use ($request, $paymentGroupId, $storeId) {
 
             $payments = Payment::where('payment_group_id', $paymentGroupId)
                 ->where('is_reversed', false)
+                ->forStore($storeId)
                 ->with('debt')
                 ->lockForUpdate()
                 ->get();
@@ -221,6 +232,7 @@ class PaymentController extends Controller
             'data' => $result,
         ]);
     }
+
     /**
      * Display the specified resource.
      */
@@ -244,15 +256,20 @@ class PaymentController extends Controller
     {
         //
     }
+
     public function reverse(ReversePaymentRequest $request, Payment $payment)
     {
+        $this->ensurePaymentBelongsToStore($request, $payment);
+
         if ($payment->is_reversed) {
             return response()->json(['message' => 'هذه الدفعة ملغاة مسبقًا'], 422);
         }
 
         $updatedPayment = DB::transaction(function () use ($request, $payment) {
-            // اقفل صف الدين قبل أي قراءة/تعديل
-            $debt = Debt::where('id', $payment->debt_id)->lockForUpdate()->firstOrFail();
+            $debt = Debt::where('id', $payment->debt_id)
+                ->where('store_id', $request->user()->store_id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
             $payment->update([
                 'is_reversed' => true,
@@ -260,7 +277,6 @@ class PaymentController extends Controller
                 'reversal_reason' => $request->reason,
             ]);
 
-            // رجّع المبلغ للرصيد المتبقي
             $debt->remaining_amount += $payment->amount;
             $debt->status = $debt->remaining_amount >= $debt->amount
                 ? 'unpaid'
@@ -274,5 +290,15 @@ class PaymentController extends Controller
             'message' => 'تم إلغاء الدفعة بنجاح',
             'payment' => new PaymentResource($updatedPayment->load('debt.customer')),
         ]);
+    }
+
+    private function ensurePaymentBelongsToStore(Request $request, Payment $payment): void
+    {
+        $payment->loadMissing('debt');
+
+        abort_unless(
+            $payment->debt?->store_id === $request->user()->store_id,
+            404
+        );
     }
 }

@@ -26,7 +26,9 @@ class StoreInvoiceRequest extends FormRequest
         return [
             'customer_id' => [
                 'nullable',
-                'exists:customers,id',
+                Rule::exists('customers', 'id')->where(function ($query) {
+                    $query->where('store_id', $this->user()->store_id);
+                }),
                 'required_if:has_debt,true',
             ],
 

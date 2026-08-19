@@ -17,7 +17,9 @@ class StorePaymentRequest extends FormRequest
         return [
             'debt_id' => [
                 'required',
-                'exists:debts,id',
+                Rule::exists('debts', 'id')->where(function ($query) {
+                    $query->where('store_id', $this->user()->store_id);
+                }),
             ],
 
             'amount' => [

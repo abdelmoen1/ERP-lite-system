@@ -17,11 +17,14 @@ class CustomerDebtController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Customer $customer)
+    public function index(Request $request, Customer $customer)
     {
-        $query = Debt::whereHas('invoice', function ($query) use ($customer) {
-            $query->where('customer_id', $customer->id);
-        });
+        $this->ensureBelongsToStore($request, $customer);
+
+        $query = Debt::forStore($request->user()->store_id)
+            ->whereHas('invoice', function ($query) use ($customer) {
+                $query->where('customer_id', $customer->id);
+            });
 
         $debts = (clone $query)
             ->with(['invoice', 'payments'])
@@ -47,11 +50,15 @@ class CustomerDebtController extends Controller
 
     public function payAll(PayAllDebtsRequest $request, Customer $customer)
     {
-        $validated = $request->validated();
+        $this->ensureBelongsToStore($request, $customer);
 
-        $result = DB::transaction(function () use ($validated, $customer, $request) {
+        $validated = $request->validated();
+        $storeId = $request->user()->store_id;
+
+        $result = DB::transaction(function () use ($validated, $customer, $request, $storeId) {
 
             $debts = $customer->debts()
+                ->forStore($storeId)
                 ->where('remaining_amount', '>', 0)
                 ->lockForUpdate()
                 ->get();
