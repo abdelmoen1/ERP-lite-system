@@ -14,10 +14,11 @@ return new class extends Migration
         Schema::create('customers', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('phone')->unique();
+            $table->string('phone');
             $table->string('address')->nullable();
             $table->text('notes')->nullable();
             $table->foreignId('store_id')->constrained()->onDelete('cascade');
+            $table->unique(['store_id', 'phone']);
             $table->softDeletes();
             $table->timestamps();
         });

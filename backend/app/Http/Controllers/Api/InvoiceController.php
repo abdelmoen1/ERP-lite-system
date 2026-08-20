@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreInvoiceRequest;
 use App\Http\Resources\InvoiceResource;
+use App\Enums\InvoiceSource;
 
 class InvoiceController extends Controller
 {
@@ -20,7 +21,7 @@ class InvoiceController extends Controller
         $invoices = Invoice::with([
             'customer',
             'items',
-            'debt',
+            'debt.payments',
         ])
             ->where('store_id', $request->user()->store_id)
             ->latest()
@@ -50,7 +51,7 @@ class InvoiceController extends Controller
         }
 
         $totalAmount = collect($validated['items'])->sum(function ($item) {
-            return $item['quantity'] * $item['unit_price'];
+            return round($item['quantity'] * (float) $item['unit_price'], 2);
         });
 
         try {
@@ -74,14 +75,13 @@ class InvoiceController extends Controller
                         'item_name' => $item['item_name'],
                         'quantity' => $item['quantity'],
                         'unit_price' => $item['unit_price'],
-                        'total' => $item['quantity'] * $item['unit_price'],
+                        'total' => round($item['quantity'] * (float) $item['unit_price'], 2),
                     ]);
                 }
 
                 if ($validated['has_debt'] === true) {
                     Debt::create([
                         'invoice_id' => $invoice->id,
-                        'customer_id' => $validated['customer_id'],
                         'store_id' => $storeId,
                         'amount' => $totalAmount,
                         'remaining_amount' => $totalAmount,
@@ -97,7 +97,7 @@ class InvoiceController extends Controller
                     . ($validated['has_debt'] ? ' وتسجيل الدين' : '')
                     . ' بنجاح.',
                 'data' => new InvoiceResource(
-                    $invoice->load(['customer', 'items', 'debt'])
+                    $invoice->load(['customer', 'items', 'debt.payments'])
                 ),
             ], 201);
         } catch (\Exception $e) {
@@ -120,7 +120,7 @@ class InvoiceController extends Controller
         $invoice->load([
             'customer',
             'items',
-            'debt',
+            'debt.payments',
         ]);
 
         return new InvoiceResource($invoice);

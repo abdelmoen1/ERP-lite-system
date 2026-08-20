@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Traits\BelongsToStore;
 use Illuminate\Database\Eloquent\Model;
+use App\Enums\InvoiceSource;
 
 class Invoice extends Model
 {
@@ -14,7 +15,18 @@ class Invoice extends Model
         'total_amount',
         'has_debt',
         'payment_method',
+        'source',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'total_amount' => 'decimal:2',
+            'has_debt' => 'boolean',
+            'source' => InvoiceSource::class,
+        ];
+    }
+
 
     public function customer()
     {

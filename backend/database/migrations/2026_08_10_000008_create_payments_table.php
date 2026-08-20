@@ -24,6 +24,8 @@ return new class extends Migration
             $table->timestamp('reversed_at')->nullable();
             $table->text('reversal_reason')->nullable();
             $table->timestamps();
+
+            $table->index(['debt_id', 'is_reversed']);
         });
     }
 

@@ -25,11 +25,10 @@ class StoreInvoiceRequest extends FormRequest
     {
         return [
             'customer_id' => [
-                'nullable',
+                'required',
                 Rule::exists('customers', 'id')->where(function ($query) {
                     $query->where('store_id', $this->user()->store_id);
                 }),
-                'required_if:has_debt,true',
             ],
 
             'has_debt' => [
@@ -41,6 +40,7 @@ class StoreInvoiceRequest extends FormRequest
                 'nullable',
                 'string',
                 Rule::in([
+                    'cash',
                     'jawwal_pay',
                     'palpay',
                     'bank_of_palestine',

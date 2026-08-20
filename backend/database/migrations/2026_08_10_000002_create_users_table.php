@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('email')->unique();
             $table->string('password');
+            $table->string('role')->default('employee')->index();
             $table->timestamps();
         });
 
@@ -33,6 +34,20 @@ return new class extends Migration
             $table->longText('payload');
             $table->integer('last_activity')->index();
         });
+
+        Schema::create('store_invitations', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('store_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('invited_by')->constrained('users')->cascadeOnDelete();
+            $table->string('email')->nullable();
+            $table->string('role');
+            $table->string('token_hash')->unique();
+            $table->timestamp('expires_at');
+            $table->timestamp('accepted_at')->nullable();
+            $table->timestamps();
+
+            $table->index(['store_id', 'role']);
+        });
     }
 
     /**
@@ -40,6 +55,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('store_invitations');
         Schema::dropIfExists('users');
         Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');

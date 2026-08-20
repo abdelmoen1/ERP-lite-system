@@ -21,6 +21,7 @@ return new class extends Migration
             $table->foreignId('invoice_id')
                 ->constrained()
                 ->restrictOnDelete();
+            $table->unique('invoice_id');
 
             $table->decimal('amount', 10, 2);
             $table->decimal('remaining_amount', 10, 2)->default(0);

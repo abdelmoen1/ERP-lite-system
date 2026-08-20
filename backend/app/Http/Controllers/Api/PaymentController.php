@@ -142,32 +142,36 @@ class PaymentController extends Controller
         $this->ensurePaymentBelongsToStore($request, $payment);
 
         DB::transaction(function () use ($request, $payment) {
+            $lockedPayment = Payment::query()
+                ->whereKey($payment->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-            $payment->load('debt');
-
-            if ($payment->is_reversed) {
+            if ($lockedPayment->is_reversed) {
                 throw ValidationException::withMessages([
                     'payment' => ['هذه الدفعة ملغاة بالفعل.'],
                 ]);
             }
 
-            $debt = $payment->debt()
+            $debt = Debt::query()
+                ->whereKey($lockedPayment->debt_id)
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $debt->remaining_amount += $payment->amount;
-
-            $debt->status = $debt->remaining_amount >= $debt->amount
-                ? 'unpaid'
-                : 'partially_paid';
-
-            $debt->save();
-
-            $payment->update([
+            $lockedPayment->update([
                 'is_reversed' => true,
                 'reversed_at' => now(),
                 'reversal_reason' => $request->validated('reason'),
             ]);
+
+            $paidAmount = $debt->payments()
+                ->where('is_reversed', false)
+                ->sum('amount');
+            $debt->remaining_amount = max(0, (float) $debt->amount - $paidAmount);
+            $debt->status = $debt->remaining_amount <= 0
+                ? 'paid'
+                : ($paidAmount > 0 ? 'partially_paid' : 'unpaid');
+            $debt->save();
         });
 
         return response()->json([
@@ -184,7 +188,6 @@ class PaymentController extends Controller
             $payments = Payment::where('payment_group_id', $paymentGroupId)
                 ->where('is_reversed', false)
                 ->forStore($storeId)
-                ->with('debt')
                 ->lockForUpdate()
                 ->get();
 
@@ -196,25 +199,33 @@ class PaymentController extends Controller
                 ]);
             }
 
+            $debts = Debt::query()
+                ->whereIn('id', $payments->pluck('debt_id'))
+                ->where('store_id', $storeId)
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
             $totalReversed = 0;
             $debtsCount = 0;
 
             foreach ($payments as $payment) {
-                $debt = $payment->debt;
-
-                $debt->remaining_amount += $payment->amount;
-
-                $debt->status = $debt->remaining_amount >= $debt->amount
-                    ? 'unpaid'
-                    : 'partially_paid';
-
-                $debt->save();
+                $debt = $debts->get($payment->debt_id);
 
                 $payment->update([
                     'is_reversed' => true,
                     'reversed_at' => now(),
                     'reversal_reason' => $request->validated('reason'),
                 ]);
+
+                $paidAmount = $debt->payments()
+                    ->where('is_reversed', false)
+                    ->sum('amount');
+                $debt->remaining_amount = max(0, (float) $debt->amount - $paidAmount);
+                $debt->status = $debt->remaining_amount <= 0
+                    ? 'paid'
+                    : ($paidAmount > 0 ? 'partially_paid' : 'unpaid');
+                $debt->save();
 
                 $totalReversed += $payment->amount;
                 $debtsCount++;
@@ -230,65 +241,6 @@ class PaymentController extends Controller
         return response()->json([
             'message' => 'تم إلغاء عملية السداد بالكامل بنجاح.',
             'data' => $result,
-        ]);
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
-    }
-
-    public function reverse(ReversePaymentRequest $request, Payment $payment)
-    {
-        $this->ensurePaymentBelongsToStore($request, $payment);
-
-        if ($payment->is_reversed) {
-            return response()->json(['message' => 'هذه الدفعة ملغاة مسبقًا'], 422);
-        }
-
-        $updatedPayment = DB::transaction(function () use ($request, $payment) {
-            $debt = Debt::where('id', $payment->debt_id)
-                ->where('store_id', $request->user()->store_id)
-                ->lockForUpdate()
-                ->firstOrFail();
-
-            $payment->update([
-                'is_reversed' => true,
-                'reversed_at' => now(),
-                'reversal_reason' => $request->reason,
-            ]);
-
-            $debt->remaining_amount += $payment->amount;
-            $debt->status = $debt->remaining_amount >= $debt->amount
-                ? 'unpaid'
-                : ($debt->remaining_amount > 0 && $debt->remaining_amount < $debt->amount ? 'partially_paid' : 'unpaid');
-            $debt->save();
-
-            return $payment;
-        });
-
-        return response()->json([
-            'message' => 'تم إلغاء الدفعة بنجاح',
-            'payment' => new PaymentResource($updatedPayment->load('debt.customer')),
         ]);
     }
 

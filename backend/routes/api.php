@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\DebtController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\InvitationController;
+use App\Http\Controllers\Api\UserController;
 
 
 // Authentication
@@ -29,6 +30,8 @@ Route::middleware(['auth:sanctum', 'store'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/invitations', [InvitationController::class, 'store']);
+    Route::apiResource('users', UserController::class)
+        ->only(['index', 'show', 'store', 'update', 'destroy']);
 
     // Current user's store
     Route::get('/my-store', function (Request $request) {
@@ -54,20 +57,20 @@ Route::middleware(['auth:sanctum', 'store'])->group(function () {
 
 
     // Invoices
-    Route::apiResource('invoices', InvoiceController::class);
+    Route::apiResource('invoices', InvoiceController::class)
+        ->only(['index', 'show', 'store']);
 
 
     // Debts
-    Route::apiResource('debts', DebtController::class);
-
-    Route::get(
-        '/debts/{debt}/details',
-        [DebtController::class, 'details']
-    );
+    Route::get('debts', [DebtController::class, 'index']);
+    Route::post('debts', [DebtController::class, 'store']);
+    Route::get('debts/{debt}', [DebtController::class, 'show']);
+    Route::get('debts/{debt}/details', [DebtController::class, 'details']);
 
 
     // Payments
-    Route::apiResource('payments', PaymentController::class);
+    Route::apiResource('payments', PaymentController::class)
+        ->only(['index', 'store']);
 
     Route::post(
         '/payments/{payment}/reverse',

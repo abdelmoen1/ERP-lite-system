@@ -17,6 +17,7 @@ return new class extends Migration
             $table->foreignId('customer_id')->constrained()->onDelete('cascade');
             $table->decimal('total_amount', 10, 2);
             $table->boolean('has_debt');
+            $table->string('source')->default('sale')->index();
             $table->string('payment_method')->nullable();
             $table->timestamps();
         });

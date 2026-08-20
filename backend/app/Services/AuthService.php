@@ -7,7 +7,6 @@ use App\Models\Store;
 use App\Models\StoreInvitation;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -18,8 +17,8 @@ class AuthService
         return DB::transaction(function () use ($data) {
             $store = Store::create([
                 'name' => $data['store_name'],
-                'phone' => $data['phone'],
-                'address' => $data['address'],
+                'phone' => $data['phone'] ?? null,
+                'address' => $data['address'] ?? null,
             ]);
 
             $owner = new User([

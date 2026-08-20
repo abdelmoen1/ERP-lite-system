@@ -26,21 +26,25 @@ class CustomerDebtController extends Controller
                 $query->where('customer_id', $customer->id);
             });
 
-        $debts = (clone $query)
-            ->with(['invoice', 'payments'])
-            ->latest()
-            ->get();
-
         $summary = [
-            'debts_count' => $debts->count(),
-            'total_debt' => (float) $debts->sum('amount'),
-            'total_payments' => (float) $debts->sum(
-                fn($debt) => $debt->payments
-                    ->where('is_reversed', false)
-                    ->sum('amount')
-            ),
-            'total_remaining' => (float) $debts->sum('remaining_amount'),
+            'debts_count' => (clone $query)->count(),
+            'total_debt' => (float) (clone $query)->sum('amount'),
+            'total_payments' => (float) \App\Models\Payment::query()
+                ->where('is_reversed', false)
+                ->whereHas('debt', function ($debtQuery) use ($request, $customer) {
+                    $debtQuery
+                        ->where('store_id', $request->user()->store_id)
+                        ->whereHas('invoice', fn($invoiceQuery) => $invoiceQuery
+                            ->where('customer_id', $customer->id));
+                })
+                ->sum('amount'),
+            'total_remaining' => (float) (clone $query)->sum('remaining_amount'),
         ];
+
+        $debts = (clone $query)
+            ->with('invoice')
+            ->latest()
+            ->paginate(10);
 
         return response()->json([
             'data' => DebtResource::collection($debts),

@@ -32,6 +32,7 @@ class StorePaymentRequest extends FormRequest
                 'required',
                 'string',
                 Rule::in([
+                    'cash',
                     'jawwal_pay',
                     'palpay',
                     'bank_of_palestine',

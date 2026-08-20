@@ -23,15 +23,10 @@ class UpdateDebtRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'customer_id' => [
-                'sometimes',
-                'exists:customers,id'
-            ],
-
             'amount' => [
                 'sometimes',
                 'numeric',
-                'min:0'
+                'min:0.01',
             ],
         ];
     }

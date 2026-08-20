@@ -84,7 +84,7 @@ class CustomerController extends Controller
         );
 
         $hasOpenDebts = $customer->debts()
-            ->whereIn('status', ['open', 'partially_paid'])
+            ->where('remaining_amount', '>', 0)
             ->exists();
 
         if ($hasOpenDebts) {

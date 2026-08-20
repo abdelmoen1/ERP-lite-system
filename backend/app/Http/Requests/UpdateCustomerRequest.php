@@ -21,7 +21,9 @@ class UpdateCustomerRequest extends FormRequest
                 'sometimes',
                 'string',
                 'max:10',
-                Rule::unique('customers', 'phone')->ignore($this->route('customer')),
+                Rule::unique('customers', 'phone')
+                    ->where(fn($query) => $query->where('store_id', $this->user()->store_id))
+                    ->ignore($this->route('customer')),
             ],
             'address' => 'sometimes|nullable|string|max:500',
             'notes' => 'sometimes|nullable|string',

@@ -2,25 +2,28 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\UserRole;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
-class RegisterStoreRequest extends FormRequest
+class StoreUserRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return !$this->user();
+        return $this->user()?->hasRole(UserRole::OWNER) ?? false;
     }
 
     public function rules(): array
     {
         return [
-            'store_name' => ['required', 'string', 'max:255'],
-            'owner_name' => ['required', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:10'],
-            'address' => ['nullable', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'confirmed', Password::defaults()],
+            'role' => ['required', Rule::in([
+                UserRole::MANAGER->value,
+                UserRole::EMPLOYEE->value,
+            ])],
         ];
     }
 }

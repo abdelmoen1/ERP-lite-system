@@ -28,6 +28,7 @@ class PayAllDebtsRequest extends FormRequest
                 'required',
                 'string',
                 Rule::in([
+                    'cash',
                     'jawwal_pay',
                     'palpay',
                     'bank_of_palestine',

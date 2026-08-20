@@ -18,7 +18,9 @@ class DebtResource extends JsonResource
             'id' => $this->id,
             'invoice_id' => $this->invoice?->id,
             'amount' => (float) $this->amount,
-            'total_payments' => (float) $this->payments->sum('amount'),
+            'total_payments' => (float) $this->payments
+                ->where('is_reversed', false)
+                ->sum('amount'),
             'remaining_amount' => (float) $this->remaining_amount,
             'status' => $this->status,
         ];
