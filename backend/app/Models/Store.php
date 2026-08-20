@@ -16,4 +16,9 @@ class Store extends Model
     {
         return $this->hasMany(User::class);
     }
+
+    public function invitations()
+    {
+        return $this->hasMany(StoreInvitation::class);
+    }
 }

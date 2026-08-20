@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UserRole;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -21,7 +22,6 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'store_id',
     ];
 
     /**
@@ -31,7 +31,6 @@ class User extends Authenticatable
      */
     protected $hidden = [
         'password',
-        'remember_token',
     ];
 
     /**
@@ -42,13 +41,26 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'role' => UserRole::class,
         ];
     }
 
     public function store()
     {
         return $this->belongsTo(Store::class);
+    }
+
+    public function invitations()
+    {
+        return $this->hasMany(StoreInvitation::class, 'invited_by');
+    }
+
+    public function hasRole(UserRole|string ...$roles): bool
+    {
+        return in_array($this->role instanceof UserRole ? $this->role->value : $this->role, array_map(
+            fn(UserRole|string $role) => $role instanceof UserRole ? $role->value : $role,
+            $roles,
+        ), true);
     }
 }

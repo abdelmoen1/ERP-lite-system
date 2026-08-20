@@ -9,10 +9,13 @@ use App\Http\Controllers\Api\CustomerDebtController;
 use App\Http\Controllers\Api\DebtController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\InvoiceController;
+use App\Http\Controllers\Api\InvitationController;
 
 
 // Authentication
+Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register/invitation', [AuthController::class, 'acceptInvitation']);
 
 
 // Protected API
@@ -22,6 +25,10 @@ Route::middleware(['auth:sanctum', 'store'])->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
+
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/me', [AuthController::class, 'me']);
+    Route::post('/invitations', [InvitationController::class, 'store']);
 
     // Current user's store
     Route::get('/my-store', function (Request $request) {
