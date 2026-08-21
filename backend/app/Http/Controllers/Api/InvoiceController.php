@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreInvoiceRequest;
+use App\Http\Requests\UpdateInvoiceRequest;
 use App\Http\Resources\InvoiceResource;
 use App\Enums\InvoiceSource;
 
@@ -68,6 +69,7 @@ class InvoiceController extends Controller
                         ? null
                         : $validated['payment_method'],
                     'total_amount' => $totalAmount,
+                    'source' => \App\Enums\InvoiceSource::SALE,
                 ]);
 
                 foreach ($validated['items'] as $item) {
@@ -129,16 +131,154 @@ class InvoiceController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Invoice $invoice)
-    {
+    public function update(
+        UpdateInvoiceRequest $request,
+        Invoice $invoice
+    ) {
         abort_unless(
             $invoice->store_id === $request->user()->store_id,
             404
         );
 
+        $validated = $request->validated();
+
+        $updatedInvoice = DB::transaction(function () use (
+            $validated,
+            $invoice
+        ) {
+            $invoice = Invoice::query()
+                ->whereKey($invoice->id)
+                ->where('store_id', $invoice->store_id)
+                ->lockForUpdate()
+                ->with('debt')
+                ->firstOrFail();
+
+            /*
+         * ------------------------------------------------------
+         * 1. Invoice Debt -> Cash Invoice
+         * ------------------------------------------------------
+         */
+            if (
+                array_key_exists('has_debt', $validated)
+                && $invoice->has_debt
+                && $validated['has_debt'] === false
+            ) {
+                $debt = $invoice->debt;
+
+                if ($debt) {
+                    if ($debt->payments()->exists()) {
+                        abort(
+                            422,
+                            'لا يمكن تحويل الفاتورة إلى نقدية لأن الدين عليه دفعات مسجلة.'
+                        );
+                    }
+
+                    $debt->delete();
+                }
+
+                $invoice->has_debt = false;
+                $invoice->payment_method = $validated['payment_method'];
+            }
+
+            /*
+         * ------------------------------------------------------
+         * 2. Cash Invoice -> Debt Invoice
+         * ------------------------------------------------------
+         *
+         * لا نسمح بتحويل فاتورة نقدية إلى دين من خلال Update.
+         * إذا أراد المستخدم ذلك، ينشئ فاتورة دين جديدة.
+         */
+            if (
+                array_key_exists('has_debt', $validated)
+                && !$invoice->has_debt
+                && $validated['has_debt'] === true
+            ) {
+                abort(
+                    422,
+                    'لا يمكن تحويل الفاتورة النقدية إلى فاتورة دين. أنشئ فاتورة دين جديدة.'
+                );
+            }
+
+            /*
+         * ------------------------------------------------------
+         * 3. Customer
+         * ------------------------------------------------------
+         */
+            if (array_key_exists('customer_id', $validated)) {
+                $invoice->customer_id = $validated['customer_id'];
+            }
+
+            /*
+         * ------------------------------------------------------
+         * 4. Invoice Items
+         * ------------------------------------------------------
+         */
+            if (array_key_exists('items', $validated)) {
+
+                if (
+                    $invoice->has_debt
+                    && $invoice->debt
+                    && $invoice->debt->payments()->exists()
+                ) {
+                    abort(
+                        422,
+                        'لا يمكن تعديل عناصر الفاتورة لأن عليها دفعات مسجلة.'
+                    );
+                }
+
+                $totalAmount = collect($validated['items'])
+                    ->sum(function ($item) {
+                        return round(
+                            $item['quantity'] * (float) $item['unit_price'],
+                            2
+                        );
+                    });
+
+                $invoice->items()->delete();
+
+                foreach ($validated['items'] as $item) {
+                    $invoice->items()->create([
+                        'item_name' => $item['item_name'],
+                        'quantity' => $item['quantity'],
+                        'unit_price' => $item['unit_price'],
+                        'total' => round(
+                            $item['quantity'] * (float) $item['unit_price'],
+                            2
+                        ),
+                    ]);
+                }
+
+                $invoice->total_amount = $totalAmount;
+
+                /*
+             * If this invoice still has an unpaid debt,
+             * keep the debt amount synchronized.
+             */
+                if (
+                    $invoice->has_debt
+                    && $invoice->debt
+                    && !$invoice->debt->payments()->exists()
+                ) {
+                    $invoice->debt->amount = $totalAmount;
+                    $invoice->debt->remaining_amount = $totalAmount;
+                    $invoice->debt->status = 'unpaid';
+                    $invoice->debt->save();
+                }
+            }
+
+            $invoice->save();
+
+            return $invoice->fresh()->load([
+                'customer',
+                'items',
+                'debt.payments',
+            ]);
+        });
+
         return response()->json([
-            'message' => 'تعديل الفواتير غير متاح حاليًا.',
-        ], 405);
+            'message' => 'تم تحديث الفاتورة بنجاح.',
+            'data' => new InvoiceResource($updatedInvoice),
+        ]);
     }
 
     /**
@@ -151,8 +291,39 @@ class InvoiceController extends Controller
             404
         );
 
+        DB::transaction(function () use ($invoice) {
+
+            $invoice = Invoice::query()
+                ->whereKey($invoice->id)
+                ->where('store_id', $invoice->store_id)
+                ->lockForUpdate()
+                ->with('debt')
+                ->firstOrFail();
+
+            if ($invoice->debt) {
+
+                if ($invoice->debt->payments()->exists()) {
+                    abort(
+                        422,
+                        'لا يمكن حذف الفاتورة لأن الدين المرتبط بها يحتوي على دفعات مسجلة.'
+                    );
+                }
+
+                /*
+             * invoices.invoice_id is restricted,
+             * therefore Debt must be deleted first.
+             */
+                $invoice->debt->delete();
+            }
+
+            /*
+         * invoice_items uses cascadeOnDelete().
+         */
+            $invoice->delete();
+        });
+
         return response()->json([
-            'message' => 'حذف الفواتير غير متاح حاليًا.',
-        ], 405);
+            'message' => 'تم حذف الفاتورة بنجاح.',
+        ]);
     }
 }

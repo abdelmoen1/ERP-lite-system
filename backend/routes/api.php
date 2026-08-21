@@ -57,16 +57,16 @@ Route::middleware(['auth:sanctum', 'store'])->group(function () {
 
 
     // Invoices
-    Route::apiResource('invoices', InvoiceController::class)
-        ->only(['index', 'show', 'store']);
-
+    Route::apiResource('invoices', InvoiceController::class);
 
     // Debts
     Route::get('debts', [DebtController::class, 'index']);
     Route::post('debts', [DebtController::class, 'store']);
     Route::get('debts/{debt}', [DebtController::class, 'show']);
     Route::get('debts/{debt}/details', [DebtController::class, 'details']);
-
+    Route::put('debts/{debt}', [DebtController::class, 'update']);
+    Route::patch('debts/{debt}', [DebtController::class, 'update']);
+    Route::delete('debts/{debt}', [DebtController::class, 'destroy']);
 
     // Payments
     Route::apiResource('payments', PaymentController::class)
