@@ -81,7 +81,8 @@ class CustomerController extends Controller
         // Employee cannot delete customers
         abort_unless(
             $request->user()?->hasRole(
-                \App\Enums\UserRole::OWNER
+                \App\Enums\UserRole::OWNER,
+                \App\Enums\UserRole::MANAGER
             ),
             403
         );

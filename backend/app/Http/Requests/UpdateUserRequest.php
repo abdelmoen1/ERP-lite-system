@@ -11,7 +11,7 @@ class UpdateUserRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->hasRole(UserRole::OWNER) ?? false;
+        return $this->user()?->hasRole(UserRole::OWNER, UserRole::MANAGER) ?? false;
     }
 
     public function rules(): array

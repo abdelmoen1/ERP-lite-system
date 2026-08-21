@@ -101,6 +101,6 @@ class UserController extends Controller
 
     private function ensureOwner(Request $request): void
     {
-        abort_unless($request->user()?->hasRole(UserRole::OWNER), 403);
+        abort_unless($request->user()?->hasRole([UserRole::OWNER, UserRole::MANAGER]), 403);
     }
 }

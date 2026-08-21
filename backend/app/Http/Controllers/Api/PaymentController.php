@@ -231,7 +231,7 @@ class PaymentController extends Controller
     public function is_reverse(ReversePaymentRequest $request, Payment $payment)
     {
         abort_unless(
-            $request->user()?->hasRole(UserRole::OWNER),
+            $request->user()?->hasRole([UserRole::OWNER, \App\Enums\UserRole::MANAGER]),
             403
         );
 
@@ -280,7 +280,7 @@ class PaymentController extends Controller
     public function reverseGroup(ReversePaymentGroupRequest $request, string $paymentGroupId)
     {
         abort_unless(
-            $request->user()?->hasRole(UserRole::OWNER),
+            $request->user()?->hasRole([UserRole::OWNER, \App\Enums\UserRole::MANAGER]),
             403
         );
 

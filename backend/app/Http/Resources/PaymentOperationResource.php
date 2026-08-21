@@ -18,9 +18,6 @@ class PaymentOperationResource extends JsonResource
             'type' => $this->type,
             'payment_group_id' => $this->payment_group_id,
 
-            'customer' => $this->customer
-                ? new CustomerResource($this->customer)
-                : null,
 
             'total_amount' => (float) $this->total_amount,
 
@@ -37,6 +34,9 @@ class PaymentOperationResource extends JsonResource
             'payments' => PaymentResource::collection(
                 $this->payments
             ),
+            'customer' => $this->customer
+                ? new CustomerResource($this->customer)
+                : null,
         ];
     }
 }

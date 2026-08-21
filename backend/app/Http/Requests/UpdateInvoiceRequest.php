@@ -12,6 +12,7 @@ class UpdateInvoiceRequest extends FormRequest
     {
         return $this->user()?->hasRole(
             UserRole::OWNER,
+            UserRole::MANAGER,
             UserRole::EMPLOYEE
         ) ?? false;
     }

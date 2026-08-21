@@ -10,13 +10,13 @@ class CreateInvitationRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->hasRole(UserRole::OWNER) ?? false;
+        return $this->user()?->hasRole(UserRole::OWNER, UserRole::MANAGER) ?? false;
     }
 
     public function rules(): array
     {
-        $allowedRoles = $this->user()->hasRole(UserRole::OWNER)
-            ? [UserRole::EMPLOYEE->value]
+        $allowedRoles = $this->user()->hasRole(UserRole::OWNER, UserRole::MANAGER)
+            ? [UserRole::MANAGER, UserRole::EMPLOYEE->value]
             : [UserRole::EMPLOYEE->value];
 
         return [
