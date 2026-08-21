@@ -24,14 +24,90 @@ class PaymentController extends Controller
     {
         $storeId = $request->user()->store_id;
 
+        $perPage = min(
+            max((int) $request->input('per_page', 15), 1),
+            50
+        );
+
+        /*
+     * An operation is:
+     *
+     * 1. payment_group_id when the payments belong to pay_all
+     * 2. single_{id} when it is a single payment
+     *
+     * We paginate operations first, then load all payments
+     * belonging to those operations.
+     */
+        $operationKeyExpression = "
+        COALESCE(
+            payment_group_id,
+            CONCAT('single_', id)
+        )
+    ";
+
+        $operationPaginator = Payment::forStore($storeId)
+            ->selectRaw("
+            {$operationKeyExpression} AS operation_key,
+            MAX(paid_at) AS operation_paid_at
+        ")
+            ->groupByRaw($operationKeyExpression)
+            ->orderByDesc('operation_paid_at')
+            ->paginate($perPage);
+
+        $operationKeys = collect($operationPaginator->items())
+            ->pluck('operation_key')
+            ->values();
+
+        if ($operationKeys->isEmpty()) {
+            $operationPaginator->setCollection(collect());
+
+            return PaymentOperationResource::collection(
+                $operationPaginator
+            );
+        }
+
+        /*
+     * Separate grouped payments from single payments.
+     */
+        $groupIds = $operationKeys
+            ->filter(fn($key) => !str_starts_with($key, 'single_'))
+            ->values();
+
+        $singlePaymentIds = $operationKeys
+            ->filter(fn($key) => str_starts_with($key, 'single_'))
+            ->map(fn($key) => (int) str_replace('single_', '', $key))
+            ->values();
+
+        /*
+     * Load only payments belonging to the current page's operations.
+     */
         $payments = Payment::forStore($storeId)
             ->with([
                 'debt.invoice.customer',
             ])
+            ->where(function ($query) use (
+                $groupIds,
+                $singlePaymentIds
+            ) {
+                if ($groupIds->isNotEmpty()) {
+                    $query->whereIn('payment_group_id', $groupIds);
+                }
+
+                if ($singlePaymentIds->isNotEmpty()) {
+                    $method = $groupIds->isNotEmpty()
+                        ? 'orWhereIn'
+                        : 'whereIn';
+
+                    $query->{$method}('id', $singlePaymentIds);
+                }
+            })
             ->latest('paid_at')
             ->get();
 
-        $operations = $payments
+        /*
+     * Build operations exactly as before.
+     */
+        $operationsByKey = $payments
             ->groupBy(function ($payment) {
                 return $payment->payment_group_id
                     ?? 'single_' . $payment->id;
@@ -64,7 +140,9 @@ class PaymentController extends Controller
                     $firstPayment->paid_at;
 
                 $operation->is_reversed =
-                    $group->every(fn($payment) => $payment->is_reversed);
+                    $group->every(
+                        fn($payment) => $payment->is_reversed
+                    );
 
                 $operation->reversed_at =
                     $operation->is_reversed
@@ -76,13 +154,25 @@ class PaymentController extends Controller
                     ? $group->first()->reversal_reason
                     : null;
 
-                $operation->payments = $group->values();
+                $operation->payments =
+                    $group->values();
 
                 return $operation;
-            })
+            });
+
+        /*
+     * Preserve the exact order of the paginated operations.
+     */
+        $operations = $operationKeys
+            ->map(fn($key) => $operationsByKey->get($key))
+            ->filter()
             ->values();
 
-        return PaymentOperationResource::collection($operations);
+        $operationPaginator->setCollection($operations);
+
+        return PaymentOperationResource::collection(
+            $operationPaginator
+        );
     }
 
     /**
