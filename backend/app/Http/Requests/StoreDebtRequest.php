@@ -12,7 +12,6 @@ class StoreDebtRequest extends FormRequest
     {
         return $this->user()?->hasRole(
             UserRole::OWNER,
-            UserRole::MANAGER
         ) ?? false;
     }
 

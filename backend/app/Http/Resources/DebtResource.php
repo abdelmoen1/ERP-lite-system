@@ -17,6 +17,7 @@ class DebtResource extends JsonResource
         return [
             'id' => $this->id,
             'invoice_id' => $this->invoice?->id,
+            'source' => $this->invoice?->source?->value,
             'amount' => (float) $this->amount,
             'total_payments' => (float) $this->payments
                 ->where('is_reversed', false)
