@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Requests\ReversePaymentRequest;
 use App\Http\Requests\ReversePaymentGroupRequest;
 use Illuminate\Validation\ValidationException;
+use App\Enums\UserRole;
 
 class PaymentController extends Controller
 {
@@ -139,6 +140,13 @@ class PaymentController extends Controller
 
     public function is_reverse(ReversePaymentRequest $request, Payment $payment)
     {
+        abort_unless(
+            $request->user()?->hasRole(UserRole::OWNER),
+            403
+        );
+
+        $this->ensurePaymentBelongsToStore($request, $payment);
+
         $this->ensurePaymentBelongsToStore($request, $payment);
 
         DB::transaction(function () use ($request, $payment) {
@@ -181,6 +189,11 @@ class PaymentController extends Controller
 
     public function reverseGroup(ReversePaymentGroupRequest $request, string $paymentGroupId)
     {
+        abort_unless(
+            $request->user()?->hasRole(UserRole::OWNER),
+            403
+        );
+
         $storeId = $request->user()->store_id;
 
         $result = DB::transaction(function () use ($request, $paymentGroupId, $storeId) {

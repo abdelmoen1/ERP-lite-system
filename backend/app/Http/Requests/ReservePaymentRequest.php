@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use App\Enums\UserRole;
 
 class ReservePaymentRequest extends FormRequest
 {
@@ -12,7 +13,7 @@ class ReservePaymentRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->hasRole(UserRole::OWNER) ?? false;
     }
 
     /**

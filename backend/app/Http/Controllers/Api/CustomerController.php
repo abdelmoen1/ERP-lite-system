@@ -78,25 +78,31 @@ class CustomerController extends Controller
      */
     public function destroy(Request $request, Customer $customer)
     {
+        // Employee cannot delete customers
+        abort_unless(
+            $request->user()?->hasRole(
+                \App\Enums\UserRole::OWNER
+            ),
+            403
+        );
+
+        // Store isolation
         abort_unless(
             $customer->store_id === $request->user()->store_id,
             404
         );
 
-        $hasOpenDebts = $customer->debts()
-            ->where('remaining_amount', '>', 0)
-            ->exists();
-
-        if ($hasOpenDebts) {
+        // Customer with any financial history cannot be deleted
+        if ($customer->invoices()->exists()) {
             return response()->json([
-                'message' => 'لا يمكن حذف عميل لديه ديون مفتوحة أو مدفوعة جزئيًا',
+                'message' => 'لا يمكن حذف العميل لأنه يمتلك سجلًا ماليًا.',
             ], 422);
         }
 
         $customer->delete();
 
         return response()->json([
-            'message' => 'تم حذف العميل بنجاح'
+            'message' => 'تم حذف العميل بنجاح.',
         ]);
     }
 }
