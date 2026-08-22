@@ -11,6 +11,7 @@ use App\Http\Requests\StoreInvoiceRequest;
 use App\Http\Requests\UpdateInvoiceRequest;
 use App\Http\Resources\InvoiceResource;
 use App\Enums\InvoiceSource;
+use App\Enums\UserRole;
 
 class InvoiceController extends Controller
 {
@@ -288,6 +289,11 @@ class InvoiceController extends Controller
         Request $request,
         Invoice $invoice
     ) {
+        abort_unless(
+            $request->user()?->hasRole(UserRole::OWNER, UserRole::MANAGER),
+            403
+        );
+
         abort_unless(
             $invoice->store_id === $request->user()->store_id,
             404

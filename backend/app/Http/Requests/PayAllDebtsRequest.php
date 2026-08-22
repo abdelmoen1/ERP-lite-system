@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\UserRole;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -13,7 +14,7 @@ class PayAllDebtsRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->hasRole(UserRole::OWNER, UserRole::MANAGER) ?? false;
     }
 
     /**

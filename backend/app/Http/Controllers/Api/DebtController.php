@@ -11,6 +11,7 @@ use App\Http\Resources\DebtDetailsResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Enums\InvoiceSource;
+use App\Enums\UserRole;
 
 class DebtController extends Controller
 {
@@ -200,6 +201,11 @@ class DebtController extends Controller
         Request $request,
         Debt $debt
     ) {
+        abort_unless(
+            $request->user()?->hasRole(UserRole::OWNER, UserRole::MANAGER),
+            403
+        );
+
         abort_unless(
             $debt->store_id === $request->user()->store_id,
             404

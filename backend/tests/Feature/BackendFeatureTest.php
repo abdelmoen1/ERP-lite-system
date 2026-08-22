@@ -89,7 +89,7 @@ class BackendFeatureTest extends TestCase
         $expired = StoreInvitation::create(['store_id' => $store->id, 'invited_by' => $owner->id, 'role' => 'employee', 'token_hash' => hash('sha256', 'expired'), 'expires_at' => Carbon::now()->subMinute()]);
         $this->app['auth']->forgetGuards();
         $this->postJson('/api/register/invitation', ['token' => 'expired', 'name' => 'Old', 'email' => 'old@example.com', 'password' => 'password', 'password_confirmation' => 'password'])->assertUnprocessable();
-        $this->actingAs($owner, 'sanctum')->getJson('/api/users')->assertOk()->assertJsonPath('data.0.id', $employee->id);
+        $this->actingAs($owner, 'sanctum')->getJson('/api/users')->assertOk()->assertJsonFragment(['id' => $employee->id]);
         $this->actingAs($owner, 'sanctum')->patchJson("/api/users/{$employee->id}/role", ['role' => 'manager'])->assertOk();
         $this->assertDatabaseHas('users', ['id' => $employee->id, 'role' => 'manager']);
         $this->actingAs($manager, 'sanctum')->getJson('/api/users')->assertForbidden();
@@ -192,5 +192,93 @@ class BackendFeatureTest extends TestCase
         $this->actingAs($target, 'sanctum')->patchJson("/api/users/{$owner->id}/role", ['role' => 'employee'])->assertForbidden();
         $this->actingAs($owner, 'sanctum')->patchJson("/api/users/{$target->id}/role", ['role' => 'invalid'])->assertUnprocessable();
         $this->assertDatabaseHas('users', ['id' => $foreign->id, 'store_id' => $b->id, 'role' => 'employee']);
+    }
+
+    public function test_role_matrix_protects_administrative_and_financial_operations(): void
+    {
+        $store = $this->store('Main');
+        $owner = $this->user($store);
+        $manager = $this->user($store, 'manager');
+        $employee = $this->user($store, 'employee');
+        $customer = $this->customer($store);
+        $invoice = $this->invoice($store, $customer, true, 100);
+        $debt = $invoice->debt;
+
+        $employeeApi = $this->actingAs($employee, 'sanctum');
+        $employeeApi->postJson('/api/customers', ['name' => 'Employee customer', 'phone' => '0590000003'])->assertCreated();
+        $employeeApi->postJson('/api/invoices', [
+            'customer_id' => $customer->id,
+            'has_debt' => false,
+            'payment_method' => 'cash',
+            'items' => [['item_name' => 'Cash item', 'quantity' => 1, 'unit_price' => 10]],
+        ])->assertCreated();
+        $employeeApi->postJson('/api/payments', ['debt_id' => $debt->id, 'amount' => 10, 'method' => 'cash'])->assertCreated();
+        $employeeApi->deleteJson("/api/invoices/{$invoice->id}")->assertForbidden();
+        $employeeApi->putJson("/api/debts/{$debt->id}", ['amount' => 90])->assertForbidden();
+        $employeeApi->deleteJson("/api/debts/{$debt->id}")->assertForbidden();
+        $payment = Payment::where('debt_id', $debt->id)->first();
+        $employeeApi->postJson("/api/payments/{$payment->id}/reverse", ['reason' => 'Not allowed'])->assertForbidden();
+        $employeeApi->postJson("/api/customers/{$customer->id}/debts/pay-all", ['method' => 'cash'])->assertForbidden();
+        $employeeApi->getJson('/api/users')->assertForbidden();
+        $employeeApi->postJson('/api/invitations', ['role' => 'employee'])->assertForbidden();
+
+        $managerApi = $this->actingAs($manager, 'sanctum');
+        $managerApi->getJson('/api/users')->assertForbidden();
+        $managerApi->patchJson("/api/users/{$employee->id}/role", ['role' => 'manager'])->assertForbidden();
+        $managerApi->postJson('/api/invitations', ['role' => 'employee'])->assertForbidden();
+        $managerApi->postJson("/api/payments/{$payment->id}/reverse", ['reason' => 'Manager correction'])->assertOk();
+        $managerApi->postJson("/api/customers/{$customer->id}/debts/pay-all", ['method' => 'cash'])->assertCreated();
+
+        $this->assertDatabaseHas('users', ['id' => $owner->id, 'role' => 'owner']);
+        $this->assertDatabaseHas('payments', ['id' => $payment->id, 'is_reversed' => true]);
+    }
+
+    public function test_invoice_conversion_and_payment_protected_deletion_rules(): void
+    {
+        $store = $this->store('Main');
+        $owner = $this->user($store);
+        $customer = $this->customer($store);
+        $api = $this->actingAs($owner, 'sanctum');
+
+        $convertible = $this->invoice($store, $customer, true, 100);
+        $convertibleDebtId = $convertible->debt->id;
+        $api->putJson("/api/invoices/{$convertible->id}", [
+            'has_debt' => false,
+            'payment_method' => 'cash',
+        ])->assertOk();
+        $this->assertDatabaseHas('invoices', ['id' => $convertible->id, 'has_debt' => false, 'payment_method' => 'cash']);
+        $this->assertDatabaseHas('debts', ['id' => $convertibleDebtId]);
+        $this->assertNotNull(Debt::withTrashed()->find($convertibleDebtId)->deleted_at);
+
+        $cash = $this->invoice($store, $customer, false, 50);
+        $api->putJson("/api/invoices/{$cash->id}", ['has_debt' => true])->assertUnprocessable();
+        $this->assertDatabaseHas('invoices', ['id' => $cash->id, 'has_debt' => false]);
+
+        $paid = $this->invoice($store, $customer, true, 75);
+        $payment = $paid->debt->payments()->create(['amount' => 25, 'method' => 'cash', 'paid_at' => now()]);
+        $api->deleteJson("/api/invoices/{$paid->id}")->assertUnprocessable();
+        $this->assertDatabaseHas('invoices', ['id' => $paid->id]);
+        $this->assertDatabaseHas('debts', ['id' => $paid->debt->id, 'remaining_amount' => 75]);
+        $this->assertDatabaseHas('payments', ['id' => $payment->id, 'is_reversed' => false]);
+    }
+
+    public function test_opening_debt_lifecycle_is_role_protected_and_consistent(): void
+    {
+        $store = $this->store('Main');
+        $owner = $this->user($store);
+        $manager = $this->user($store, 'manager');
+        $employee = $this->user($store, 'employee');
+        $customer = $this->customer($store);
+        $payload = ['customer_id' => $customer->id, 'amount' => 120];
+
+        $employee->load('store');
+        $this->actingAs($employee, 'sanctum')->postJson('/api/debts', $payload)->assertForbidden();
+        $created = $this->actingAs($manager, 'sanctum')->postJson('/api/debts', $payload)->assertCreated();
+        $debtId = $created->json('data.debt.id');
+        $this->assertDatabaseHas('debts', ['id' => $debtId, 'amount' => 120, 'remaining_amount' => 120, 'status' => 'unpaid']);
+        $this->actingAs($manager, 'sanctum')->putJson("/api/debts/{$debtId}", ['amount' => 150])->assertOk();
+        $this->assertDatabaseHas('debts', ['id' => $debtId, 'amount' => 150, 'remaining_amount' => 150]);
+        $this->actingAs($owner, 'sanctum')->deleteJson("/api/debts/{$debtId}")->assertOk();
+        $this->assertDatabaseMissing('debts', ['id' => $debtId]);
     }
 }
