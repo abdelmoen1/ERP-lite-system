@@ -59,8 +59,12 @@ class User extends Authenticatable
         return $this->hasMany(StoreInvitation::class, 'invited_by');
     }
 
-    public function hasRole(UserRole|string ...$roles): bool
+    public function hasRole(UserRole|string|array ...$roles): bool
     {
+        $roles = count($roles) === 1 && is_array($roles[0])
+            ? $roles[0]
+            : $roles;
+
         return in_array($this->role instanceof UserRole ? $this->role->value : $this->role, array_map(
             fn(UserRole|string $role) => $role instanceof UserRole ? $role->value : $role,
             $roles,

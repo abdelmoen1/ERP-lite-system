@@ -286,63 +286,37 @@ class InvoiceController extends Controller
      */
     public function destroy(
         Request $request,
-        Debt $debt
+        Invoice $invoice
     ) {
         abort_unless(
-            $debt->store_id === $request->user()->store_id,
+            $invoice->store_id === $request->user()->store_id,
             404
         );
 
-        DB::transaction(function () use ($debt) {
-
-            $lockedDebt = Debt::query()
-                ->whereKey($debt->id)
-                ->where('store_id', $debt->store_id)
-                ->with(['invoice.items'])
+        DB::transaction(function () use ($invoice) {
+            $lockedInvoice = Invoice::query()
+                ->whereKey($invoice->id)
+                ->where('store_id', $invoice->store_id)
+                ->with('debt')
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $invoice = $lockedDebt->invoice;
-
-            if (!$invoice) {
-                abort(422, 'هذا الدين غير مرتبط بفاتورة.');
-            }
-
-            if ($invoice->source !== InvoiceSource::OPENING_DEBT) {
+            if ($lockedInvoice->debt?->payments()->exists()) {
                 abort(
                     422,
-                    'لا يمكن حذف دين ناتج عن فاتورة من خلال هذا المسار.'
+                    'لا يمكن حذف الفاتورة لأنها تحتوي على دفعات مسجلة.'
                 );
             }
 
-            if ($lockedDebt->payments()->exists()) {
-                abort(
-                    422,
-                    'لا يمكن حذف الدين لأنه يحتوي على دفعات مسجلة.'
-                );
+            if ($lockedInvoice->debt) {
+                $lockedInvoice->debt->forceDelete();
             }
 
-            /*
-         * Delete the invoice items explicitly first.
-         */
-            $invoice->items()->delete();
-
-            /*
-         * Debt uses SoftDeletes.
-         * We need a real DELETE because invoices.invoice_id
-         * uses restrictOnDelete().
-         */
-            $lockedDebt->forceDelete();
-
-            /*
-         * Now the foreign key constraint is satisfied,
-         * because the debt row no longer exists.
-         */
-            $invoice->delete();
+            $lockedInvoice->delete();
         });
 
         return response()->json([
-            'message' => 'تم حذف الدين القديم والفاتورة المرتبطة به بنجاح.',
+            'message' => 'تم حذف الفاتورة بنجاح.',
         ]);
     }
 }

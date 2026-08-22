@@ -38,10 +38,14 @@ class PaymentController extends Controller
      * We paginate operations first, then load all payments
      * belonging to those operations.
      */
+        $singlePaymentKeyExpression = DB::connection()->getDriverName() === 'sqlite'
+            ? "'single_' || id"
+            : "CONCAT('single_', id)";
+
         $operationKeyExpression = "
         COALESCE(
             payment_group_id,
-            CONCAT('single_', id)
+            {$singlePaymentKeyExpression}
         )
     ";
 
