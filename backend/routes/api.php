@@ -22,16 +22,21 @@ Route::post('/register/invitation', [AuthController::class, 'acceptInvitation'])
 // Protected API
 Route::middleware(['auth:sanctum', 'store'])->group(function () {
 
-    // Current authenticated user
-    Route::get('/user', function (Request $request) {
-        return $request->user();
-    });
 
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/invitations', [InvitationController::class, 'store']);
-    Route::apiResource('users', UserController::class)
-        ->only(['index', 'show', 'store', 'update', 'destroy']);
+    Route::get('/users', [UserController::class, 'index']);
+
+    Route::patch('/users/{user}/role', [
+        UserController::class,
+        'updateRole',
+    ]);
+
+    Route::delete('/users/{user}', [
+        UserController::class,
+        'destroy',
+    ]);
 
     // Current user's store
     Route::get('/my-store', function (Request $request) {
